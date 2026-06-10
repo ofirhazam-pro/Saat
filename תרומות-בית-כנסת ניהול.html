@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#2d6a4f">
+<title>ניהול תרומות – בית כנסת</title>
+<link rel="manifest" href="manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f5f0;
+    --surface: #ffffff;
+    --surface2: #f0ede6;
+    --border: #d8d3c8;
+    --text: #1a1714;
+    --text2: #6b6560;
+    --accent: #2d6a4f;
+    --accent-light: #e8f4ee;
+    --accent2: #b7791f;
+    --danger: #c0392b;
+    --danger-light: #fdf0ee;
+    --warning: #d97706;
+    --warning-light: #fef3c7;
+    --success: #2d6a4f;
+    --success-light: #e8f4ee;
+    --radius: 10px;
+    --shadow: 0 2px 8px rgba(0,0,0,0.07);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Heebo', sans-serif; background: var(--bg); color: var(--text); direction: rtl; min-height: 100vh; }
+
+  /* HEADER */
+  .app-header { background: var(--accent); color: white; padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .app-header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+  .app-header h1 span { font-weight: 300; opacity: 0.8; font-size: 14px; display: block; }
+  .header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .header-btn { padding: 6px 14px; font-size: 13px; font-family: 'Heebo', sans-serif; border-radius: 6px; border: 1.5px solid rgba(255,255,255,0.4); background: rgba(255,255,255,0.12); color: white; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.15s; }
+  .header-btn:hover { background: rgba(255,255,255,0.22); }
+  .header-btn svg { width: 15px; height: 15px; }
+
+  /* STATS */
+  .stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 1rem 1.5rem; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .stat-label { font-size: 12px; color: var(--text2); margin-bottom: 4px; }
+  .stat-value { font-size: 22px; font-weight: 700; color: var(--text); }
+  .stat-value.accent { color: var(--accent); }
+  .stat-value.warn { color: var(--accent2); }
+
+  /* TABS */
+  .tabs { display: flex; gap: 0; padding: 0 1.5rem; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .tab-btn { padding: 12px 20px; font-size: 14px; font-family: 'Heebo', sans-serif; font-weight: 500; background: none; border: none; color: var(--text2); cursor: pointer; border-bottom: 2.5px solid transparent; margin-bottom: -1px; transition: color 0.15s; }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+
+  /* CONTENT */
+  .content { padding: 1.25rem 1.5rem; }
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* FORM CARD */
+  .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; box-shadow: var(--shadow); }
+  .form-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--surface2); }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .form-group label { font-size: 12px; color: var(--text2); display: block; margin-bottom: 5px; font-weight: 500; }
+  .form-group input, .form-group select {
+    width: 100%; padding: 8px 10px; font-size: 13px; font-family: 'Heebo', sans-serif;
+    border: 1px solid var(--border); border-radius: 7px; background: var(--surface);
+    color: var(--text); outline: none; transition: border-color 0.15s;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+
+  /* BUTTONS */
+  .btn { padding: 8px 18px; font-size: 13px; font-family: 'Heebo', sans-serif; font-weight: 500; border-radius: 7px; cursor: pointer; border: none; transition: opacity 0.15s, transform 0.1s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text2); font-family: 'Heebo', sans-serif; cursor: pointer; }
+  .btn-sm:hover { background: var(--surface2); color: var(--text); }
+  .btn-del { color: var(--danger); border-color: #f5c6c3; }
+  .btn-del:hover { background: var(--danger-light); }
+
+  /* TABLE */
+  .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+  .table-toolbar { padding: 10px 14px; border-bottom: 1px solid var(--surface2); display: flex; gap: 8px; align-items: center; }
+  .table-toolbar input { padding: 6px 10px; font-size: 13px; font-family: 'Heebo', sans-serif; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); outline: none; width: 200px; }
+  .table-toolbar input:focus { border-color: var(--accent); }
+  .table-toolbar select { padding: 6px 10px; font-size: 13px; font-family: 'Heebo', sans-serif; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); outline: none; cursor: pointer; }
+  .table-toolbar select:focus { border-color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { padding: 10px 14px; text-align: right; font-weight: 600; color: var(--text2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; background: var(--surface2); border-bottom: 1px solid var(--border); }
+  td { padding: 11px 14px; border-bottom: 1px solid #f0ede6; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafaf8; }
+
+  /* BADGES */
+  .badge { display: inline-block; padding: 3px 9px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+  .badge-paid { background: var(--success-light); color: var(--success); }
+  .badge-partial { background: var(--warning-light); color: var(--warning); }
+  .badge-unpaid { background: var(--danger-light); color: var(--danger); }
+
+  /* PROGRESS */
+  .progress-wrap { min-width: 80px; }
+  .progress-pct { font-size: 11px; color: var(--text2); margin-bottom: 3px; }
+  .progress-bar { height: 5px; background: #e8e4dc; border-radius: 99px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 99px; background: var(--accent); transition: width 0.3s; }
+
+  .empty-row td { text-align: center; color: var(--text2); padding: 2rem; font-size: 13px; }
+
+  /* MATCH DETAIL */
+  .match-row { cursor: pointer; }
+  .match-row:hover td { background: var(--accent-light) !important; }
+  .match-row.open td { background: #dff0e8; font-weight: 600; }
+  .detail-row td { padding: 0 !important; border-bottom: 2px solid var(--accent) !important; }
+  .detail-panel { padding: 14px 18px; background: #f2faf6; }
+  .detail-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .detail-cols { grid-template-columns: 1fr; } }
+  .detail-sub-title { font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #b7e0ca; }
+  .detail-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .detail-table th { padding: 5px 8px; background: rgba(45,106,79,0.1); color: var(--text2); font-weight: 600; font-size: 11px; text-align: right; }
+  .detail-table td { padding: 5px 8px; border-bottom: 1px solid rgba(0,0,0,0.05); }
+  .detail-table tr:last-child td { border-bottom: none; }
+  .detail-sum { margin-top: 8px; font-size: 12px; font-weight: 700; color: var(--accent); text-align: left; }
+
+  /* AUTOCOMPLETE */
+  .ac-wrap { position: relative; }
+  .ac-list { position: absolute; top: 100%; right: 0; left: 0; background: var(--surface); border: 1px solid var(--accent); border-top: none; border-radius: 0 0 7px 7px; z-index: 100; max-height: 180px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .ac-item { padding: 8px 10px; font-size: 13px; cursor: pointer; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .ac-item:hover, .ac-item.active { background: var(--accent-light); }
+  .ac-item mark { background: none; color: var(--accent); font-weight: 700; }
+
+  /* EDIT MODAL */
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1000; align-items:center; justify-content:center; }
+  .modal-overlay.open { display:flex; }
+  .modal-box { background:var(--surface); border-radius:var(--radius); padding:1.5rem; width:min(480px,95vw); box-shadow:0 8px 32px rgba(0,0,0,0.18); }
+  .modal-title { font-size:15px; font-weight:700; margin-bottom:1rem; padding-bottom:10px; border-bottom:1px solid var(--surface2); }
+  .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:1rem; }
+  .btn-secondary { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+  .btn-secondary:hover { opacity:0.85; }
+
+  /* SAVE INDICATOR */
+  .save-indicator { font-size: 12px; color: rgba(255,255,255,0.6); }
+
+  @media (max-width: 640px) {
+    .stats-bar { grid-template-columns: 1fr 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+    .table-toolbar input { width: 140px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div>
+    <h1>✡ ניהול תרומות
+      <span>בית כנסת</span>
+    </h1>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+    <div class="header-actions">
+      <button class="header-btn" onclick="saveJSON()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        שמור JSON
+      </button>
+      <button class="header-btn" onclick="document.getElementById('loadFile').click()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        טען JSON
+      </button>
+      <button class="header-btn" onclick="document.getElementById('importExcelFile').click()" style="background:rgba(255,255,255,0.22)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        ייבוא אקסל
+      </button>
+      <button class="header-btn" onclick="exportExcel()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
+        ייצוא אקסל
+      </button>
+      <button class="header-btn" onclick="openExportByDateModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>
+        ייצוא לפי תאריך
+      </button>
+      <button class="header-btn" onclick="exportPDF()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        PDF
+      </button>
+    </div>
+    <span class="save-indicator" id="saveIndicator">לא נשמר</span>
+  </div>
+  <input type="file" id="loadFile" accept=".json" style="display:none" onchange="loadJSON(event)">
+  <input type="file" id="importExcelFile" accept=".xlsx,.xls" style="display:none" onchange="importExcel(event)">
+</div>
+
+<!-- EXPORT BY DATE RANGE MODAL -->
+<div class="modal-overlay" id="exportDateModal" onclick="closeExportByDateModal(event)">
+  <div class="modal-box">
+    <div class="modal-title">ייצוא תרומות לאקסל לפי תאריך</div>
+    <div class="form-grid">
+      <div class="form-group"><label>מתאריך</label><input id="export-from-date" type="date" oninput="document.getElementById('export-date-error').style.display='none'"></div>
+      <div class="form-group"><label>עד תאריך</label><input id="export-to-date" type="date" oninput="document.getElementById('export-date-error').style.display='none'"></div>
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:8px">השאר ריק לייצוא ללא הגבלת תאריך</div>
+    <div id="export-date-error" style="display:none;font-size:13px;color:var(--danger);background:var(--danger-light);border:1px solid #f5c6c3;border-radius:7px;padding:8px 12px;margin-bottom:10px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeExportByDateModal()">ביטול</button>
+      <button class="btn btn-primary" onclick="exportExcelByDateRange()">ייצוא לאקסל</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT DONATION MODAL -->
+<div class="modal-overlay" id="editModal" onclick="closeEditModal(event)">
+  <div class="modal-box">
+    <div class="modal-title">עריכת תרומה</div>
+    <div class="form-grid">
+      <div class="form-group"><label>שם תורם</label><input id="edit-donor" type="text"></div>
+      <div class="form-group"><label>סכום (₪)</label><input id="edit-amount" type="number"></div>
+      <div class="form-group"><label>תאריך</label><input id="edit-date" type="date"></div>
+      <div class="form-group"><label>אמצעי תשלום</label>
+        <select id="edit-method">
+          <option>העברה בנקאית</option><option>מזומן</option><option>המחאה</option><option>אשראי</option>
+        </select>
+      </div>
+      <div class="form-group"><label>מטרה</label><input id="edit-purpose" type="text"></div>
+      <div class="form-group"><label>מספר קבלה</label><input id="edit-receipt" type="text"></div>
+      <div class="form-group" style="grid-column:1/-1"><label>הערות</label><input id="edit-notes" type="text"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeEditModal()">ביטול</button>
+      <button class="btn btn-primary" onclick="saveEditDonation()">שמור</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT PLEDGE MODAL -->
+<div class="modal-overlay" id="editPledgeModal" onclick="closeEditPledgeModal(event)">
+  <div class="modal-box">
+    <div class="modal-title">עריכת התחייבות</div>
+    <div class="form-grid">
+      <div class="form-group"><label>שם תורם</label><input id="ep-name" type="text"></div>
+      <div class="form-group"><label>סכום התחייבות (₪)</label><input id="ep-amount" type="number"></div>
+      <div class="form-group"><label>תאריך</label><input id="ep-date" type="date"></div>
+      <div class="form-group"><label>מטרה / פרויקט</label><input id="ep-purpose" type="text"></div>
+      <div class="form-group" style="grid-column:1/-1"><label>הערות</label><input id="ep-notes" type="text"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeEditPledgeModal()">ביטול</button>
+      <button class="btn btn-primary" onclick="saveEditPledge()">שמור</button>
+    </div>
+  </div>
+</div>
+
+<div class="stats-bar" id="stats"></div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('pledges',this)">התחייבויות</button>
+  <button class="tab-btn" onclick="switchTab('donations',this)">תרומות</button>
+  <button class="tab-btn" onclick="switchTab('match',this)">התאמה</button>
+</div>
+
+<div class="content">
+
+  <!-- התחייבויות -->
+  <div class="section active" id="sec-pledges">
+    <div class="form-card">
+      <div class="form-title">הוסף התחייבות חדשה</div>
+      <div class="form-grid">
+        <div class="form-group"><label>שם תורם</label><div class="ac-wrap"><input id="p-name" type="text" placeholder="ישראלי ישראל" autocomplete="off" oninput="acInput(this,'ac-pledges')" onkeydown="acKey(event,'ac-pledges')" onblur="acBlur('ac-pledges')"><div class="ac-list" id="ac-pledges" style="display:none"></div></div></div>
+        <div class="form-group"><label>סכום התחייבות (₪)</label><input id="p-amount" type="number" placeholder="500"></div>
+        <div class="form-group"><label>תאריך</label><input id="p-date" type="date"></div>
+        <div class="form-group"><label>מטרה / פרויקט</label><div class="ac-wrap"><input id="p-purpose" type="text" placeholder="בית הכנסת" autocomplete="off" oninput="acInput(this,'ac-purpose')" onkeydown="acKey(event,'ac-purpose')" onblur="acBlur('ac-purpose')"><div class="ac-list" id="ac-purpose" style="display:none"></div></div></div>
+        <div class="form-group"><label>הערות</label><div class="ac-wrap"><input id="p-notes" type="text" placeholder="אופציונלי" autocomplete="off" oninput="acInput(this,'ac-p-notes')" onkeydown="acKey(event,'ac-p-notes')" onblur="acBlur('ac-p-notes')"><div class="ac-list" id="ac-p-notes" style="display:none"></div></div></div>
+      </div>
+      <button class="btn btn-primary" onclick="addPledge()">+ הוסף התחייבות</button>
+    </div>
+    <div class="table-card">
+      <div class="table-toolbar">
+        <input type="text" id="search-pledges" placeholder="חיפוש לפי שם..." oninput="renderPledges()">
+        <select id="filter-pledges-purpose" onchange="renderPledges()">
+          <option value="">כל המטרות</option>
+        </select>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>שם תורם</th><th>הערות</th><th>התחייבות</th><th>שולם</th><th>יתרה</th><th>מטרה</th><th>תאריך</th><th>סטטוס</th><th></th></tr></thead>
+          <tbody id="pledges-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- תרומות -->
+  <div class="section" id="sec-donations">
+    <div class="form-card">
+      <div class="form-title">רשום תרומה חדשה</div>
+      <div class="form-grid">
+        <div class="form-group"><label>בחר / הקלד תורם</label>
+          <div class="ac-wrap"><input id="d-donor" type="text" placeholder="הקלד שם תורם..." autocomplete="off" oninput="acInput(this,'ac-donations')" onkeydown="acKey(event,'ac-donations')" onblur="acBlur('ac-donations')"><div class="ac-list" id="ac-donations" style="display:none"></div></div>
+        </div>
+        <div class="form-group"><label>סכום (₪)</label><input id="d-amount" type="number" placeholder="200"></div>
+        <div class="form-group"><label>תאריך תרומה</label><input id="d-date" type="date"></div>
+        <div class="form-group"><label>אמצעי תשלום</label>
+          <select id="d-method">
+            <option>העברה בנקאית</option><option>מזומן</option><option>המחאה</option><option>אשראי</option>
+          </select>
+        </div>
+        <div class="form-group"><label>מטרה / פרויקט</label><div class="ac-wrap"><input id="d-purpose" type="text" placeholder="בית כנסת" autocomplete="off" oninput="acInput(this,'ac-d-purpose')" onkeydown="acKey(event,'ac-d-purpose')" onblur="acBlur('ac-d-purpose')"><div class="ac-list" id="ac-d-purpose" style="display:none"></div></div></div>
+        <div class="form-group"><label>מספר קבלה</label><input id="d-receipt" type="text" placeholder="אופציונלי"></div>
+        <div class="form-group"><label>הערות</label><div class="ac-wrap"><input id="d-notes" type="text" placeholder="אופציונלי" autocomplete="off" oninput="acInput(this,'ac-d-notes')" onkeydown="acKey(event,'ac-d-notes')" onblur="acBlur('ac-d-notes')"><div class="ac-list" id="ac-d-notes" style="display:none"></div></div></div>
+      </div>
+      <button class="btn btn-primary" onclick="addDonation()">+ רשום תרומה</button>
+    </div>
+    <div class="table-card">
+      <div class="table-toolbar">
+        <input type="text" id="search-donations" placeholder="חיפוש..." oninput="renderDonations()">
+        <select id="filter-donations-purpose" onchange="renderDonations()">
+          <option value="">כל המטרות</option>
+        </select>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>שם תורם</th><th>סכום</th><th>תאריך</th><th>אמצעי תשלום</th><th>מטרה</th><th>קבלה</th><th>הערות</th><th></th></tr></thead>
+          <tbody id="donations-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- התאמה -->
+  <div class="section" id="sec-match">
+    <div class="table-card">
+      <div class="table-toolbar">
+        <input type="text" id="search-match" placeholder="חיפוש לפי שם..." oninput="renderMatch()">
+        <span style="font-size:12px;color:var(--text2);margin-right:8px">לחץ על שורה לפירוט</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>שם תורם</th><th>סה"כ התחייבות</th><th>סה"כ שולם</th><th>יתרה</th><th>התקדמות</th><th>סטטוס</th></tr></thead>
+          <tbody id="match-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let db = { pledges: [], donations: [], meta: { version: 1, lastSaved: null } };
+let nextPledgeId = 1, nextDonationId = 1;
+const STORAGE_KEY = 'synagogue-donations-db-v1';
+
+function safeLocalStorage() {
+  try { return window.localStorage; } catch (err) { return null; }
+}
+
+function persistToStorage() {
+  const storage = safeLocalStorage();
+  if (!storage) return;
+  storage.setItem(STORAGE_KEY, JSON.stringify(db));
+}
+
+function restoreFromStorage() {
+  const storage = safeLocalStorage();
+  if (!storage) return false;
+  const raw = storage.getItem(STORAGE_KEY);
+  if (!raw) return false;
+  try {
+    const loaded = JSON.parse(raw);
+    if (!loaded || !loaded.pledges || !loaded.donations) return false;
+    db = loaded;
+    db.meta = db.meta || { version: 1, lastSaved: null };
+    nextPledgeId = db.meta.nextPledgeId || (Math.max(0, ...db.pledges.map(p => p.id)) + 1);
+    nextDonationId = db.meta.nextDonationId || (Math.max(0, ...db.donations.map(d => d.id)) + 1);
+    return true;
+  } catch (err) {
+    console.warn('Could not restore saved data:', err);
+    return false;
+  }
+}
+
+function downloadJsonFile(jsonStr, filename = 'תרומות-בית-כנסת.json') {
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+}
+
+function today() { return new Date().toISOString().slice(0,10); }
+function fmt(n) { return '₪' + Number(n).toLocaleString('he-IL'); }
+function fmtDate(d) { if (!d) return ''; const p = d.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+
+function paidFor(name) { return db.donations.filter(d=>d.donorName===name).reduce((s,d)=>s+Number(d.amount),0); }
+function pledgedFor(name) { return db.pledges.filter(p=>p.name===name).reduce((s,p)=>s+Number(p.amount),0); }
+
+function renderStats() {
+  const totalP = db.pledges.reduce((s,p)=>s+Number(p.amount),0);
+  const totalD = db.donations.reduce((s,d)=>s+Number(d.amount),0);
+  const pct = totalP > 0 ? Math.round(totalD/totalP*100) : 0;
+  const donors = new Set(db.pledges.map(p=>p.name)).size;
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="stat-label">תורמים</div><div class="stat-value">${donors}</div></div>
+    <div class="stat"><div class="stat-label">סה"כ התחייבויות</div><div class="stat-value accent">${fmt(totalP)}</div></div>
+    <div class="stat"><div class="stat-label">סה"כ נתרם</div><div class="stat-value accent">${fmt(totalD)}</div></div>
+    <div class="stat"><div class="stat-label">יתרה / אחוז גבייה</div><div class="stat-value warn">${fmt(totalP-totalD)} <span style="font-size:14px;color:var(--text2)">(${pct}%)</span></div></div>
+  `;
+}
+
+function renderPledges() {
+  const q = document.getElementById('search-pledges').value.toLowerCase();
+  const purposeFilter = document.getElementById('filter-pledges-purpose').value;
+  const rows = db.pledges.filter(p=>p.name.toLowerCase().includes(q) && (!purposeFilter || (p.purpose||'')===purposeFilter)).slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const body = document.getElementById('pledges-body');
+  if (!rows.length) { body.innerHTML = '<tr class="empty-row"><td colspan="9">אין נתונים</td></tr>'; return; }
+  body.innerHTML = rows.map(p => {
+    const paid = paidFor(p.name);
+    const balance = Number(p.amount) - paid;
+    const badge = balance<=0 ? '<span class="badge badge-paid">שולם במלואו</span>'
+      : paid>0 ? '<span class="badge badge-partial">חלקי</span>'
+      : '<span class="badge badge-unpaid">טרם שולם</span>';
+    return `<tr>
+      <td><strong>${p.name}</strong></td>
+      <td style="color:var(--text2)">${p.notes||'—'}</td>
+      <td>${fmt(p.amount)}</td>
+      <td>${fmt(paid)}</td>
+      <td>${balance>0?fmt(balance):'—'}</td>
+      <td>${p.purpose||'—'}</td>
+      <td>${fmtDate(p.date)}</td>
+      <td>${badge}</td>
+      <td style="display:flex;gap:4px">
+        <button class="btn btn-sm" onclick="openEditPledgeModal(${p.id})">ערוך</button>
+        <button class="btn btn-sm btn-del" onclick="deletePledge(${p.id})">מחק</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderDonations() {
+  const q = document.getElementById('search-donations').value.toLowerCase();
+  const purposeFilter = document.getElementById('filter-donations-purpose').value;
+  const rows = db.donations.filter(d=>d.donorName.toLowerCase().includes(q) && (!purposeFilter || (d.purpose||'')===purposeFilter)).slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const body = document.getElementById('donations-body');
+  if (!rows.length) { body.innerHTML = '<tr class="empty-row"><td colspan="8">אין נתונים</td></tr>'; return; }
+  body.innerHTML = rows.map(d=>`<tr>
+    <td><strong>${d.donorName}</strong></td>
+    <td>${fmt(d.amount)}</td>
+    <td>${fmtDate(d.date)}</td>
+    <td>${d.method}</td>
+    <td>${d.purpose||'—'}</td>
+    <td>${d.receipt||'—'}</td>
+    <td>${d.notes||'—'}</td>
+    <td style="display:flex;gap:4px">
+      <button class="btn btn-sm" onclick="openEditModal(${d.id})">ערוך</button>
+      <button class="btn btn-sm btn-del" onclick="deleteDonation(${d.id})">מחק</button>
+    </td>
+  </tr>`).join('');
+}
+
+let matchOpenName = null;
+
+function renderMatch() {
+  const q = (document.getElementById('search-match').value || '').toLowerCase();
+  const donors = [...new Set(db.pledges.map(p=>p.name))].filter(n => n.toLowerCase().includes(q));
+  const body = document.getElementById('match-body');
+  if (!donors.length) { body.innerHTML = '<tr class="empty-row"><td colspan="7">אין נתונים</td></tr>'; return; }
+  body.innerHTML = donors.map(name => {
+    const pledged = pledgedFor(name), paid = paidFor(name);
+    const balance = pledged - paid;
+    const pct = pledged>0 ? Math.min(100, Math.round(paid/pledged*100)) : 0;
+    const badge = balance<=0 ? '<span class="badge badge-paid">שולם במלואו</span>'
+      : paid>0 ? '<span class="badge badge-partial">חלקי</span>'
+      : '<span class="badge badge-unpaid">טרם שולם</span>';
+    const isOpen = matchOpenName === name;
+    const safeName = name.replace(/"/g,'&quot;');
+    const mainRow = `<tr class="match-row${isOpen?' open':''}" onclick="toggleMatchDetail('${safeName}')">
+      <td><strong>${name}</strong> <span style="font-size:11px;color:var(--accent)">${isOpen?'▲':'▼'}</span></td>
+      <td>${fmt(pledged)}</td>
+      <td>${fmt(paid)}</td>
+      <td>${balance>0?fmt(balance):'—'}</td>
+      <td><div class="progress-wrap"><div class="progress-pct">${pct}%</div><div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div></div></td>
+      <td>${badge}</td>
+    </tr>`;
+    if (!isOpen) return mainRow;
+    return mainRow + buildDetailRow(name);
+  }).join('');
+}
+
+function toggleMatchDetail(name) {
+  matchOpenName = (matchOpenName === name) ? null : name;
+  renderMatch();
+}
+
+function buildDetailRow(name) {
+  const pledges = db.pledges.filter(p=>p.name===name).slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const donations = db.donations.filter(d=>d.donorName===name).slice().sort((a,b)=>a.date.localeCompare(b.date));
+
+  const pledgeRows = pledges.length
+    ? pledges.map(p=>`<tr>
+        <td>${fmtDate(p.date)||'—'}</td>
+        <td>${p.purpose||'—'}</td>
+        <td style="font-weight:600;color:var(--accent)">${fmt(p.amount)}</td>
+        <td>${p.notes||'—'}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="4" style="color:var(--text2)">אין התחייבויות</td></tr>';
+
+  const donationRows = donations.length
+    ? donations.map(d=>`<tr>
+        <td>${fmtDate(d.date)||'—'}</td>
+        <td>${d.purpose||'—'}</td>
+        <td style="font-weight:600;color:var(--success)">${fmt(d.amount)}</td>
+        <td>${d.method}</td>
+        <td>${d.receipt||'—'}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="5" style="color:var(--text2)">אין תרומות</td></tr>';
+
+  const totalDonated = donations.reduce((s,d)=>s+Number(d.amount),0);
+
+  return `<tr class="detail-row">
+    <td colspan="7">
+      <div class="detail-panel">
+        <div class="detail-cols">
+          <div>
+            <div class="detail-sub-title">📋 התחייבויות</div>
+            <table class="detail-table">
+              <thead><tr><th>תאריך</th><th>מטרה</th><th>סכום</th><th>הערות</th></tr></thead>
+              <tbody>${pledgeRows}</tbody>
+            </table>
+          </div>
+          <div>
+            <div class="detail-sub-title">💰 תרומות</div>
+            <table class="detail-table">
+              <thead><tr><th>תאריך</th><th>מטרה</th><th>סכום</th><th>אמצעי</th><th>קבלה</th></tr></thead>
+              <tbody>${donationRows}</tbody>
+            </table>
+            ${donations.length ? `<div class="detail-sum">סה"כ שולם: ${fmt(totalDonated)}</div>` : ''}
+          </div>
+        </div>
+      </div>
+    </td>
+  </tr>`;
+}
+
+function updateDonorSelect() {
+  // kept for compatibility — autocomplete reads db.pledges directly
+}
+
+/* ─── AUTOCOMPLETE ─── */
+let acSelected = -1;
+
+function getNames() {
+  return [...new Set(db.pledges.map(p => p.name))].sort((a,b) => a.localeCompare(b, 'he'));
+}
+
+function getPurposes() {
+  const pPurposes = db.pledges.map(p => p.purpose);
+  const dPurposes = db.donations.map(d => d.purpose);
+  return [...new Set([...pPurposes, ...dPurposes].filter(Boolean))].sort((a,b) => a.localeCompare(b, 'he'));
+}
+
+function getNotes() {
+  const pNotes = db.pledges.map(p => p.notes);
+  const dNotes = db.donations.map(d => d.notes);
+  return [...new Set([...pNotes, ...dNotes].filter(Boolean))].sort((a,b) => a.localeCompare(b, 'he'));
+}
+
+function acInput(input, listId) {
+  const q = input.value.trim();
+  const list = document.getElementById(listId);
+  acSelected = -1;
+  if (!q) { list.style.display = 'none'; return; }
+  let source;
+  if (listId === 'ac-purpose' || listId === 'ac-d-purpose') source = getPurposes();
+  else if (listId === 'ac-p-notes' || listId === 'ac-d-notes') source = getNotes();
+  else source = getNames();
+  const matches = source.filter(n => n.includes(q));
+  if (!matches.length) { list.style.display = 'none'; return; }
+  list.innerHTML = matches.map(n => {
+    const hi = n.replace(q, `<mark>${q}</mark>`);
+    return `<div class="ac-item" data-name="${n}" onmousedown="acPick('${listId}','${n.replace(/'/g,"\\'")}',event)">${hi}</div>`;
+  }).join('');
+  list.style.display = 'block';
+}
+
+function acPick(listId, name, e) {
+  if (e) e.preventDefault();
+  const list = document.getElementById(listId);
+  const map = { 'ac-pledges': 'p-name', 'ac-purpose': 'p-purpose', 'ac-p-notes': 'p-notes', 'ac-donations': 'd-donor', 'ac-d-purpose': 'd-purpose', 'ac-d-notes': 'd-notes' };
+  const inputId = map[listId] || listId;
+  document.getElementById(inputId).value = name;
+  list.style.display = 'none';
+  acSelected = -1;
+  if (listId === 'ac-donations') document.getElementById('d-amount').focus();
+}
+
+function acKey(e, listId) {
+  const list = document.getElementById(listId);
+  const items = list.querySelectorAll('.ac-item');
+  if (!items.length || list.style.display === 'none') return;
+  if (e.key === 'ArrowDown') { e.preventDefault(); acSelected = Math.min(acSelected+1, items.length-1); acHighlight(items); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); acSelected = Math.max(acSelected-1, 0); acHighlight(items); }
+  else if (e.key === 'Enter' && acSelected >= 0) { e.preventDefault(); acPick(listId, items[acSelected].dataset.name, null); }
+  else if (e.key === 'Escape') { list.style.display = 'none'; acSelected = -1; }
+}
+
+function acHighlight(items) {
+  items.forEach((el, i) => el.classList.toggle('active', i === acSelected));
+  if (acSelected >= 0) items[acSelected].scrollIntoView({ block: 'nearest' });
+}
+
+function acBlur(listId) {
+  setTimeout(() => { const l = document.getElementById(listId); if(l) l.style.display='none'; }, 150);
+}
+
+function addPledge() {
+  const name = document.getElementById('p-name').value.trim();
+  const amount = parseFloat(document.getElementById('p-amount').value);
+  const date = document.getElementById('p-date').value;
+  if (!name||!amount||!date) { alert('נא למלא שם, סכום ותאריך'); return; }
+  db.pledges.push({ id: nextPledgeId++, name, amount, date, purpose: document.getElementById('p-purpose').value.trim(), notes: document.getElementById('p-notes').value.trim() });
+  ['p-name','p-amount','p-date','p-purpose','p-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('p-purpose').value = 'בית כנסת';
+  document.getElementById('p-date').value = today();
+  markUnsaved(); updateDonorSelect(); renderAll();
+}
+
+function addDonation() {
+  const donorName = document.getElementById('d-donor').value.trim();
+  const amount = parseFloat(document.getElementById('d-amount').value);
+  const date = document.getElementById('d-date').value;
+  if (!donorName||!amount||!date) { alert('נא למלא תורם, סכום ותאריך'); return; }
+  db.donations.push({ id: nextDonationId++, donorName, amount, date, method: document.getElementById('d-method').value, purpose: document.getElementById('d-purpose').value.trim(), receipt: document.getElementById('d-receipt').value.trim(), notes: document.getElementById('d-notes').value.trim() });
+  ['d-donor','d-amount','d-purpose','d-receipt','d-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('d-date').value = today();
+  markUnsaved(); renderAll();
+}
+
+function deletePledge(id) { if(confirm('למחוק התחייבות זו?')) { db.pledges=db.pledges.filter(p=>p.id!==id); markUnsaved(); updateDonorSelect(); renderAll(); } }
+function deleteDonation(id) { if(confirm('למחוק תרומה זו?')) { db.donations=db.donations.filter(d=>d.id!==id); markUnsaved(); renderAll(); } }
+
+let editingPledgeId = null;
+function openEditPledgeModal(id) {
+  const p = db.pledges.find(x=>x.id===id);
+  if (!p) return;
+  editingPledgeId = id;
+  document.getElementById('ep-name').value = p.name;
+
+  document.getElementById('ep-amount').value = p.amount;
+  document.getElementById('ep-date').value = p.date;
+  document.getElementById('ep-purpose').value = p.purpose||'';
+  document.getElementById('ep-notes').value = p.notes||'';
+  document.getElementById('editPledgeModal').classList.add('open');
+}
+function closeEditPledgeModal(e) {
+  if (e && e.target !== document.getElementById('editPledgeModal')) return;
+  document.getElementById('editPledgeModal').classList.remove('open');
+  editingPledgeId = null;
+}
+function saveEditPledge() {
+  const p = db.pledges.find(x=>x.id===editingPledgeId);
+  if (!p) return;
+  const name = document.getElementById('ep-name').value.trim();
+  const amount = parseFloat(document.getElementById('ep-amount').value);
+  const date = document.getElementById('ep-date').value;
+  if (!name||!amount||!date) { alert('נא למלא שם, סכום ותאריך'); return; }
+  const oldName = p.name;
+  p.name = name;
+
+  p.amount = amount;
+  p.date = date;
+  p.purpose = document.getElementById('ep-purpose').value.trim();
+  p.notes = document.getElementById('ep-notes').value.trim();
+  // עדכן שם תורם בתרומות אם השתנה
+  if (oldName !== name) {
+    db.donations.filter(d=>d.donorName===oldName).forEach(d=>d.donorName=name);
+  }
+  document.getElementById('editPledgeModal').classList.remove('open');
+  editingPledgeId = null;
+  markUnsaved(); updateDonorSelect(); renderAll();
+}
+
+let editingDonationId = null;
+function openEditModal(id) {
+  const d = db.donations.find(x=>x.id===id);
+  if (!d) return;
+  editingDonationId = id;
+  document.getElementById('edit-donor').value = d.donorName;
+  document.getElementById('edit-amount').value = d.amount;
+  document.getElementById('edit-date').value = d.date;
+  document.getElementById('edit-method').value = d.method;
+  document.getElementById('edit-purpose').value = d.purpose||'';
+  document.getElementById('edit-receipt').value = d.receipt||'';
+  document.getElementById('edit-notes').value = d.notes||'';
+  document.getElementById('editModal').classList.add('open');
+}
+function closeEditModal(e) {
+  if (e && e.target !== document.getElementById('editModal')) return;
+  document.getElementById('editModal').classList.remove('open');
+  editingDonationId = null;
+}
+function saveEditDonation() {
+  const d = db.donations.find(x=>x.id===editingDonationId);
+  if (!d) return;
+  const donorName = document.getElementById('edit-donor').value.trim();
+  const amount = parseFloat(document.getElementById('edit-amount').value);
+  const date = document.getElementById('edit-date').value;
+  if (!donorName||!amount||!date) { alert('נא למלא תורם, סכום ותאריך'); return; }
+  d.donorName = donorName;
+  d.amount = amount;
+  d.date = date;
+  d.method = document.getElementById('edit-method').value;
+  d.purpose = document.getElementById('edit-purpose').value.trim();
+  d.receipt = document.getElementById('edit-receipt').value.trim();
+  d.notes = document.getElementById('edit-notes').value.trim();
+  document.getElementById('editModal').classList.remove('open');
+  editingDonationId = null;
+  markUnsaved(); renderAll();
+}
+
+function switchTab(tab, el) {
+  document.querySelectorAll('.tab-btn').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('sec-'+tab).classList.add('active');
+}
+
+function populatePurposeFilters() {
+  const pledgePurposes = [...new Set(db.pledges.map(p=>p.purpose||'').filter(Boolean))].sort((a,b)=>a.localeCompare(b,'he'));
+  const donationPurposes = [...new Set(db.donations.map(d=>d.purpose||'').filter(Boolean))].sort((a,b)=>a.localeCompare(b,'he'));
+  function fillSelect(id, purposes) {
+    const sel = document.getElementById(id);
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">כל המטרות</option>' + purposes.map(p=>`<option value="${p}">${p}</option>`).join('');
+    if (purposes.includes(cur)) sel.value = cur;
+  }
+  fillSelect('filter-pledges-purpose', pledgePurposes);
+  fillSelect('filter-donations-purpose', donationPurposes);
+}
+
+function renderAll() { populatePurposeFilters(); renderStats(); renderPledges(); renderDonations(); renderMatch(); }
+
+/* ─── JSON SAVE / LOAD ─── */
+function saveJSON() {
+  db.meta.lastSaved = new Date().toISOString();
+  db.meta.nextPledgeId = nextPledgeId;
+  db.meta.nextDonationId = nextDonationId;
+  const jsonStr = JSON.stringify(db, null, 2);
+  persistToStorage();
+
+  if (window.showSaveFilePicker) {
+    (async () => {
+      try {
+        const opts = {
+          types: [{
+            description: 'קובץ JSON',
+            accept: {'application/json': ['.json']}
+          }],
+          suggestedName: 'תרומות-בית-כנסת.json'
+        };
+        const handle = await window.showSaveFilePicker(opts);
+        const writable = await handle.createWritable();
+        await writable.write(jsonStr);
+        await writable.close();
+        document.getElementById('saveIndicator').textContent = 'נשמר ✓ ' + new Date().toLocaleTimeString('he-IL');
+      } catch (err) {
+        downloadJsonFile(jsonStr);
+        document.getElementById('saveIndicator').textContent = 'נשמר בדפדפן ✓ ' + new Date().toLocaleTimeString('he-IL');
+      }
+    })();
+  } else {
+    downloadJsonFile(jsonStr);
+    document.getElementById('saveIndicator').textContent = 'נשמר בדפדפן ✓ ' + new Date().toLocaleTimeString('he-IL');
+  }
+}
+
+function loadJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const loaded = JSON.parse(e.target.result);
+      if (!loaded.pledges || !loaded.donations) { alert('קובץ לא תקין'); return; }
+      db = loaded;
+      db.meta = db.meta || { version: 1, lastSaved: null };
+      nextPledgeId = db.meta.nextPledgeId || (Math.max(0, ...db.pledges.map(p => p.id)) + 1);
+      nextDonationId = db.meta.nextDonationId || (Math.max(0, ...db.donations.map(d => d.id)) + 1);
+      persistToStorage();
+      updateDonorSelect(); renderAll();
+      document.getElementById('saveIndicator').textContent = 'נטען ✓';
+    } catch(err) { alert('שגיאה בטעינת הקובץ'); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function markUnsaved() {
+  persistToStorage();
+  document.getElementById('saveIndicator').textContent = 'נשמר בדפדפן ✓';
+}
+
+/* ─── EXPORT ─── */
+function exportExcel() {
+  const wb = XLSX.utils.book_new();
+  const pData = [['שם תורם','סכום התחייבות','שולם','יתרה','מטרה','תאריך','הערות']].concat(
+    db.pledges.map(p=>{const paid=paidFor(p.name);return[p.name,p.amount,paid,p.amount-paid,p.purpose||'',p.date,p.notes||''];})
+  );
+  const dData = [['שם תורם','סכום','תאריך','אמצעי תשלום','מטרה','מספר קבלה','הערות']].concat(
+    db.donations.map(d=>[d.donorName,d.amount,d.date,d.method,d.purpose||'',d.receipt||'',d.notes||''])
+  );
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(pData), 'התחייבויות');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dData), 'תרומות');
+  XLSX.writeFile(wb, 'תרומות-בית-כנסת.xlsx');
+}
+
+function openExportByDateModal() {
+  document.getElementById('export-date-error').style.display = 'none';
+  document.getElementById('exportDateModal').classList.add('open');
+}
+function closeExportByDateModal(e) {
+  if (e && e.target !== document.getElementById('exportDateModal')) return;
+  document.getElementById('exportDateModal').classList.remove('open');
+}
+// Normalize any date format to YYYY-MM-DD for reliable comparison
+function normDate(d) {
+  if (!d) return '';
+  const s = String(d).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;                         // already YYYY-MM-DD
+  const m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/); // DD/MM/YYYY
+  if (m) {
+    const y = m[3].length === 2 ? '20' + m[3] : m[3];
+    return `${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  }
+  return s;
+}
+
+function exportExcelByDateRange() {
+  let fromDate = document.getElementById('export-from-date').value;
+  let toDate = document.getElementById('export-to-date').value;
+
+  // Auto-fix reversed range
+  if (fromDate && toDate && fromDate > toDate) {
+    [fromDate, toDate] = [toDate, fromDate];
+    document.getElementById('export-from-date').value = fromDate;
+    document.getElementById('export-to-date').value = toDate;
+  }
+
+  let donations = db.donations.slice();
+  if (fromDate) donations = donations.filter(d => normDate(d.date) >= fromDate);
+  if (toDate)   donations = donations.filter(d => normDate(d.date) <= toDate);
+  donations.sort((a,b) => normDate(a.date).localeCompare(normDate(b.date)));
+
+  if (!donations.length) {
+    const errEl = document.getElementById('export-date-error');
+    let msg = 'לא נמצאו תרומות';
+    if (fromDate || toDate) msg += ' בטווח ' + (fromDate ? fmtDate(fromDate) : '') + (fromDate && toDate ? ' – ' : '') + (toDate ? fmtDate(toDate) : '');
+    errEl.textContent = msg;
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const total = donations.reduce((s,d) => s + Number(d.amount), 0);
+  const rows = donations.map(d => [d.donorName, d.amount, d.date, d.method||'', d.purpose||'', d.receipt||'', d.notes||'']);
+  const sheet = [['שם תורם', 'סכום', 'תאריך', 'אמצעי תשלום', 'מטרה', 'קבלה', 'הערות']]
+    .concat(rows)
+    .concat([['סה"כ', total, '', '', '', '', '']]);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheet), 'תרומות');
+  const filename = 'תרומות' + (fromDate ? ' מ-' + fromDate : '') + (toDate ? ' עד-' + toDate : '') + '.xlsx';
+  XLSX.writeFile(wb, filename);
+  closeExportByDateModal();
+}
+
+function exportPDF() {
+  const donors = [...new Set(db.pledges.map(p=>p.name))];
+  const totalP = db.pledges.reduce((s,p)=>s+Number(p.amount),0);
+  const totalD = db.donations.reduce((s,d)=>s+Number(d.amount),0);
+  const rows = donors.map(name=>{
+    const pledged=pledgedFor(name), paid=paidFor(name);
+    const status = pledged-paid<=0?'שולם במלואו':paid>0?'חלקי':'טרם שולם';
+    return `<tr><td>${name}</td><td>₪${pledged.toLocaleString('he-IL')}</td><td>₪${paid.toLocaleString('he-IL')}</td><td>₪${Math.max(0,pledged-paid).toLocaleString('he-IL')}</td><td>${status}</td></tr>`;
+  }).join('');
+  const html = `<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="utf-8"><title>דוח תרומות</title>
+  <style>body{font-family:Arial,sans-serif;padding:30px;direction:rtl;color:#111}h2{font-size:22px;margin-bottom:4px}p{color:#666;font-size:13px;margin-bottom:20px}table{width:100%;border-collapse:collapse;font-size:13px}th{background:#2d6a4f;color:white;padding:10px 12px;text-align:right}td{padding:9px 12px;border-bottom:1px solid #ddd}tfoot td{font-weight:bold;background:#e8f4ee;border-top:2px solid #2d6a4f}</style>
+  </head><body>
+  <h2>✡ דוח תרומות – בית כנסת</h2>
+  <p>תאריך הפקה: ${new Date().toLocaleDateString('he-IL')} | מספר תורמים: ${donors.length}</p>
+  <table><thead><tr><th>שם תורם</th><th>התחייבות</th><th>שולם</th><th>יתרה</th><th>סטטוס</th></tr></thead>
+  <tbody>${rows}</tbody>
+  <tfoot><tr><td>סה"כ</td><td>₪${totalP.toLocaleString('he-IL')}</td><td>₪${totalD.toLocaleString('he-IL')}</td><td>₪${(totalP-totalD).toLocaleString('he-IL')}</td><td></td></tr></tfoot>
+  </table></body></html>`;
+  const w = window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>w.print(),600);
+}
+
+/* ─── IMPORT EXCEL ─── */
+function importExcel(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+      let imported = 0, skipped = 0;
+
+      // find header row
+      let dataStart = 0;
+      let colChazan = 0, colBeitKnesset = 1, colAmount = 2, colName = 3, colReceipt = 4, colDate = -1;
+      for (let i = 0; i < Math.min(5, rows.length); i++) {
+        const r = rows[i].map(c => String(c).trim());
+        if (r.some(c => c === 'שם' || c === 'קבלה')) {
+          dataStart = i + 1;
+          // detect columns by header names
+          r.forEach((h, idx) => {
+            if (h === 'חזן') colChazan = idx;
+            else if (h === 'בית כנסת') colBeitKnesset = idx;
+            else if (h === 'שם') colName = idx;
+            else if (h === 'קבלה') colReceipt = idx;
+            else if (h === 'תאריך') colDate = idx;
+          });
+          break;
+        }
+      }
+
+      function parseExcelDate(val) {
+        if (!val) return '';
+        const s = String(val).trim();
+        // Excel serial number
+        if (/^\d{4,5}$/.test(s)) {
+          const d = new Date(Math.round((Number(s) - 25569) * 86400 * 1000));
+          return d.toISOString().slice(0, 10);
+        }
+        // dd/mm/yyyy or dd-mm-yyyy
+        const m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+        if (m) {
+          const y = m[3].length === 2 ? '20' + m[3] : m[3];
+          return `${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+        }
+        // yyyy-mm-dd already
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        return '';
+      }
+
+      for (let i = dataStart; i < rows.length; i++) {
+        const row = rows[i].map(c => String(c).trim());
+        const name = row[colName] || '';
+        const receipt = row[colReceipt] || '';
+        const donationDate = colDate >= 0 ? parseExcelDate(row[colDate]) : '';
+
+        // skip empty / "לא נמסר"
+        if (!name || name === 'לא נמסר') { skipped++; continue; }
+
+        // normalize method (col0 area before chazan)
+        const methodRaw = row[0] || '';
+        let methodNorm = 'העברה בנקאית';
+        if (methodRaw.includes('צ') || methodRaw.includes("'")) methodNorm = 'המחאה';
+        else if (methodRaw.includes('מזומן')) methodNorm = 'מזומן';
+        else if (methodRaw.includes('אשראי')) methodNorm = 'אשראי';
+
+        // סכום חזן — col0
+        const chazanAmount = parseFloat(row[colChazan]) || 0;
+        // סכום בית כנסת — col2
+        const mainAmount = parseFloat(row[colAmount]) || 0;
+
+        // תרומת בית כנסת — רק אם יש סכום
+        if (mainAmount > 0) {
+          if (receipt && db.donations.some(d => d.receipt === receipt)) { skipped++; }
+          else {
+            db.donations.push({ id: nextDonationId++, donorName: name, amount: mainAmount, date: donationDate, method: methodNorm, purpose: 'בית כנסת', receipt, notes: '' });
+            imported++;
+          }
+        }
+
+        // תרומת חזן — רק אם יש סכום
+        if (chazanAmount > 0) {
+          db.donations.push({ id: nextDonationId++, donorName: name, amount: chazanAmount, date: donationDate, method: methodNorm, purpose: 'חזן', receipt: '', notes: '' });
+          imported++;
+        }
+
+        if (mainAmount <= 0 && chazanAmount <= 0) skipped++;
+      }
+
+      markUnsaved();
+      updateDonorSelect();
+      renderAll();
+
+      // switch to donations tab
+      document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.tab-btn')[1].classList.add('active');
+      document.getElementById('sec-donations').classList.add('active');
+
+      alert(`ייבוא הושלם!\nיובאו: ${imported} תרומות\nדולגו: ${skipped} שורות (ריקות, כפולות או ללא סכום)`);
+    } catch(err) {
+      alert('שגיאה בייבוא הקובץ: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  event.target.value = '';
+}
+
+
+document.getElementById('p-date').value = today();
+document.getElementById('p-purpose').value = 'בית כנסת';
+document.getElementById('d-date').value = today();
+const restored = restoreFromStorage();
+renderAll();
+if (restored) {
+  document.getElementById('saveIndicator').textContent = 'נטען מהדפדפן ✓';
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(err => console.warn('Service worker registration failed:', err));
+  });
+}
+</script>
+</body>
+</html>

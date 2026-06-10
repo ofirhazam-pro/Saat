@@ -1,0 +1,9 @@
+{
+  "name": "ניהול תרומות – בית כנסת",
+  "short_name": "תרומות",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f7f5f0",
+  "theme_color": "#2d6a4f",
+  "description": "מערכת ניהול תרומות והתאמות עבור בית כנסת"
+}
