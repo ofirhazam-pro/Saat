@@ -1,5 +1,5 @@
-const CACHE_NAME = 'synagogue-donations-v1';
-const APP_SHELL = ['./', './manifest.json', './תרומות-בית-כנסת ניהול.html'];
+const CACHE_NAME = 'synagogue-donations-v2';
+const APP_SHELL = ['./', './manifest.json', './index.html'];
 
 self.addEventListener('install', event => {
   event.waitUntil(
@@ -26,6 +26,6 @@ self.addEventListener('fetch', event => {
         caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
         return response;
       })
-      .catch(() => caches.match(event.request).then(cached => cached || caches.match('./תרומות-בית-כנסת ניהול.html')))
+      .catch(() => caches.match(event.request).then(cached => cached || caches.match('./index.html')))
   );
 });

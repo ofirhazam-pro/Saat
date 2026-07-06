@@ -359,6 +359,36 @@ function persistToStorage() {
   storage.setItem(STORAGE_KEY, JSON.stringify(db));
 }
 
+function normalizeRecordIds() {
+  const pledgeIds = new Set();
+  db.pledges = (db.pledges || []).map(p => {
+    let id = Number(p.id);
+    if (!Number.isInteger(id) || id <= 0 || pledgeIds.has(id)) {
+      id = nextPledgeId++;
+    }
+    pledgeIds.add(id);
+    p.id = id;
+    return p;
+  });
+  nextPledgeId = Math.max(nextPledgeId, ...db.pledges.map(p => p.id)) + 1;
+
+  const donationIds = new Set();
+  db.donations = (db.donations || []).map(d => {
+    let id = Number(d.id);
+    if (!Number.isInteger(id) || id <= 0 || donationIds.has(id)) {
+      id = nextDonationId++;
+    }
+    donationIds.add(id);
+    d.id = id;
+    return d;
+  });
+  nextDonationId = Math.max(nextDonationId, ...db.donations.map(d => d.id)) + 1;
+
+  db.meta = db.meta || { version: 1, lastSaved: null };
+  db.meta.nextPledgeId = nextPledgeId;
+  db.meta.nextDonationId = nextDonationId;
+}
+
 function restoreFromStorage() {
   const storage = safeLocalStorage();
   if (!storage) return false;
@@ -371,6 +401,7 @@ function restoreFromStorage() {
     db.meta = db.meta || { version: 1, lastSaved: null };
     nextPledgeId = db.meta.nextPledgeId || (Math.max(0, ...db.pledges.map(p => p.id)) + 1);
     nextDonationId = db.meta.nextDonationId || (Math.max(0, ...db.donations.map(d => d.id)) + 1);
+    normalizeRecordIds();
     return true;
   } catch (err) {
     console.warn('Could not restore saved data:', err);
@@ -431,8 +462,8 @@ function renderPledges() {
       <td>${fmtDate(p.date)}</td>
       <td>${badge}</td>
       <td style="display:flex;gap:4px">
-        <button class="btn btn-sm" onclick="openEditPledgeModal(${p.id})">ערוך</button>
-        <button class="btn btn-sm btn-del" onclick="deletePledge(${p.id})">מחק</button>
+        <button class="btn btn-sm" data-action="edit-pledge" data-id="${p.id}">ערוך</button>
+        <button class="btn btn-sm btn-del" data-action="delete-pledge" data-id="${p.id}">מחק</button>
       </td>
     </tr>`;
   }).join('');
@@ -453,10 +484,30 @@ function renderDonations() {
     <td>${d.receipt||'—'}</td>
     <td>${d.notes||'—'}</td>
     <td style="display:flex;gap:4px">
-      <button class="btn btn-sm" onclick="openEditModal(${d.id})">ערוך</button>
-      <button class="btn btn-sm btn-del" onclick="deleteDonation(${d.id})">מחק</button>
+      <button class="btn btn-sm" data-action="edit-donation" data-id="${d.id}">ערוך</button>
+      <button class="btn btn-sm btn-del" data-action="delete-donation" data-id="${d.id}">מחק</button>
     </td>
   </tr>`).join('');
+}
+
+function handleTableAction(event) {
+  const button = event.target.closest('button[data-action]');
+  if (!button) return;
+  const id = Number(button.dataset.id);
+  switch (button.dataset.action) {
+    case 'edit-pledge':
+      openEditPledgeModal(id);
+      break;
+    case 'delete-pledge':
+      deletePledge(id);
+      break;
+    case 'edit-donation':
+      openEditModal(id);
+      break;
+    case 'delete-donation':
+      deleteDonation(id);
+      break;
+  }
 }
 
 let matchOpenName = null;
@@ -642,7 +693,7 @@ function deleteDonation(id) { if(confirm('למחוק תרומה זו?')) { db.do
 
 let editingPledgeId = null;
 function openEditPledgeModal(id) {
-  const p = db.pledges.find(x=>x.id===id);
+  const p = db.pledges.find(x => Number(x.id) === Number(id));
   if (!p) return;
   editingPledgeId = id;
   document.getElementById('ep-name').value = p.name;
@@ -659,7 +710,7 @@ function closeEditPledgeModal(e) {
   editingPledgeId = null;
 }
 function saveEditPledge() {
-  const p = db.pledges.find(x=>x.id===editingPledgeId);
+  const p = db.pledges.find(x => Number(x.id) === Number(editingPledgeId));
   if (!p) return;
   const name = document.getElementById('ep-name').value.trim();
   const amount = parseFloat(document.getElementById('ep-amount').value);
@@ -683,7 +734,7 @@ function saveEditPledge() {
 
 let editingDonationId = null;
 function openEditModal(id) {
-  const d = db.donations.find(x=>x.id===id);
+  const d = db.donations.find(x => Number(x.id) === Number(id));
   if (!d) return;
   editingDonationId = id;
   document.getElementById('edit-donor').value = d.donorName;
@@ -701,7 +752,7 @@ function closeEditModal(e) {
   editingDonationId = null;
 }
 function saveEditDonation() {
-  const d = db.donations.find(x=>x.id===editingDonationId);
+  const d = db.donations.find(x => Number(x.id) === Number(editingDonationId));
   if (!d) return;
   const donorName = document.getElementById('edit-donor').value.trim();
   const amount = parseFloat(document.getElementById('edit-amount').value);
@@ -740,6 +791,8 @@ function populatePurposeFilters() {
 }
 
 function renderAll() { populatePurposeFilters(); renderStats(); renderPledges(); renderDonations(); renderMatch(); }
+
+document.addEventListener('click', handleTableAction);
 
 /* ─── JSON SAVE / LOAD ─── */
 function saveJSON() {
@@ -787,6 +840,7 @@ function loadJSON(event) {
       db.meta = db.meta || { version: 1, lastSaved: null };
       nextPledgeId = db.meta.nextPledgeId || (Math.max(0, ...db.pledges.map(p => p.id)) + 1);
       nextDonationId = db.meta.nextDonationId || (Math.max(0, ...db.donations.map(d => d.id)) + 1);
+      normalizeRecordIds();
       persistToStorage();
       updateDonorSelect(); renderAll();
       document.getElementById('saveIndicator').textContent = 'נטען ✓';
