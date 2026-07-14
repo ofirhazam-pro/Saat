@@ -1,0 +1,12 @@
+name = "saat"
+compatibility_date = "2024-09-01"
+
+[site]
+bucket = "."
+
+[vars]
+# no vars required
+
+[[kv_namespaces]]
+binding = "SAAT_KV"
+id = "YOUR_KV_NAMESPACE_ID"

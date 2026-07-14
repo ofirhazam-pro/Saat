@@ -167,6 +167,14 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         טען JSON
       </button>
+      <button class="header-btn" onclick="syncToCloudflare(true)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12a7 7 0 0112-5.2"/><path d="M19 5v5h-5"/><path d="M19 12a7 7 0 01-12 5.2"/><path d="M5 19v-5h5"/></svg>
+        שמור ענן
+      </button>
+      <button class="header-btn" onclick="loadFromCloudflare()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 5 17 10"/><line x1="12" y1="5" x2="12" y2="19"/></svg>
+        טען ענן
+      </button>
       <button class="header-btn" onclick="document.getElementById('importExcelFile').click()" style="background:rgba(255,255,255,0.22)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         ייבוא אקסל
@@ -357,6 +365,47 @@ function persistToStorage() {
   const storage = safeLocalStorage();
   if (!storage) return;
   storage.setItem(STORAGE_KEY, JSON.stringify(db));
+}
+
+async function persistToCloudflare() {
+  if (typeof fetch !== 'function') return false;
+  try {
+    const response = await fetch('/api/data', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'saat.json', payload: db })
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return true;
+  } catch (err) {
+    console.warn('Could not sync to Cloudflare:', err);
+    return false;
+  }
+}
+
+async function restoreFromCloudflare() {
+  if (typeof fetch !== 'function') return false;
+  try {
+    const response = await fetch('/api/data?key=saat.json', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    const loaded = data?.payload || data;
+    if (!loaded || !loaded.pledges || !loaded.donations) return false;
+    db = loaded;
+    db.meta = db.meta || { version: 1, lastSaved: null };
+    nextPledgeId = db.meta.nextPledgeId || (Math.max(0, ...db.pledges.map(p => p.id)) + 1);
+    nextDonationId = db.meta.nextDonationId || (Math.max(0, ...db.donations.map(d => d.id)) + 1);
+    normalizeRecordIds();
+    return true;
+  } catch (err) {
+    console.warn('Could not restore Cloudflare data:', err);
+    return false;
+  }
+}
+
+function setSaveIndicator(text) {
+  const el = document.getElementById('saveIndicator');
+  if (el) el.textContent = text;
 }
 
 function normalizeRecordIds() {
@@ -795,44 +844,44 @@ function renderAll() { populatePurposeFilters(); renderStats(); renderPledges();
 document.addEventListener('click', handleTableAction);
 
 /* ─── JSON SAVE / LOAD ─── */
-function saveJSON() {
+async function saveJSON() {
   db.meta.lastSaved = new Date().toISOString();
   db.meta.nextPledgeId = nextPledgeId;
   db.meta.nextDonationId = nextDonationId;
   const jsonStr = JSON.stringify(db, null, 2);
   persistToStorage();
 
+  const cloudSaved = await persistToCloudflare();
+
   if (window.showSaveFilePicker) {
-    (async () => {
-      try {
-        const opts = {
-          types: [{
-            description: 'קובץ JSON',
-            accept: {'application/json': ['.json']}
-          }],
-          suggestedName: 'תרומות-בית-כנסת.json'
-        };
-        const handle = await window.showSaveFilePicker(opts);
-        const writable = await handle.createWritable();
-        await writable.write(jsonStr);
-        await writable.close();
-        document.getElementById('saveIndicator').textContent = 'נשמר ✓ ' + new Date().toLocaleTimeString('he-IL');
-      } catch (err) {
-        downloadJsonFile(jsonStr);
-        document.getElementById('saveIndicator').textContent = 'נשמר בדפדפן ✓ ' + new Date().toLocaleTimeString('he-IL');
-      }
-    })();
+    try {
+      const opts = {
+        types: [{
+          description: 'קובץ JSON',
+          accept: {'application/json': ['.json']}
+        }],
+        suggestedName: 'תרומות-בית-כנסת.json'
+      };
+      const handle = await window.showSaveFilePicker(opts);
+      const writable = await handle.createWritable();
+      await writable.write(jsonStr);
+      await writable.close();
+      setSaveIndicator(cloudSaved ? 'נשמר ענן + קובץ ✓ ' + new Date().toLocaleTimeString('he-IL') : 'נשמר ✓ ' + new Date().toLocaleTimeString('he-IL'));
+    } catch (err) {
+      downloadJsonFile(jsonStr);
+      setSaveIndicator(cloudSaved ? 'נשמר ענן + קובץ ✓ ' + new Date().toLocaleTimeString('he-IL') : 'נשמר בדפדפן ✓ ' + new Date().toLocaleTimeString('he-IL'));
+    }
   } else {
     downloadJsonFile(jsonStr);
-    document.getElementById('saveIndicator').textContent = 'נשמר בדפדפן ✓ ' + new Date().toLocaleTimeString('he-IL');
+    setSaveIndicator(cloudSaved ? 'נשמר ענן + קובץ ✓ ' + new Date().toLocaleTimeString('he-IL') : 'נשמר בדפדפן ✓ ' + new Date().toLocaleTimeString('he-IL'));
   }
 }
 
-function loadJSON(event) {
+async function loadJSON(event) {
   const file = event.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = e => {
+  reader.onload = async e => {
     try {
       const loaded = JSON.parse(e.target.result);
       if (!loaded.pledges || !loaded.donations) { alert('קובץ לא תקין'); return; }
@@ -842,17 +891,40 @@ function loadJSON(event) {
       nextDonationId = db.meta.nextDonationId || (Math.max(0, ...db.donations.map(d => d.id)) + 1);
       normalizeRecordIds();
       persistToStorage();
+      const cloudSaved = await persistToCloudflare();
       updateDonorSelect(); renderAll();
-      document.getElementById('saveIndicator').textContent = 'נטען ✓';
+      setSaveIndicator(cloudSaved ? 'נטען מהקובץ ונשמר בענן ✓' : 'נטען ✓');
     } catch(err) { alert('שגיאה בטעינת הקובץ'); }
   };
   reader.readAsText(file);
   event.target.value = '';
 }
 
+async function syncToCloudflare(showMessage = false) {
+  const saved = await persistToCloudflare();
+  if (showMessage) {
+    setSaveIndicator(saved ? 'נשמר בענן ✓' : 'לא הצליח לשמור לענן');
+  }
+  return saved;
+}
+
+async function loadFromCloudflare() {
+  const loaded = await restoreFromCloudflare();
+  if (loaded) {
+    updateDonorSelect(); renderAll();
+    setSaveIndicator('נטען מהענן ✓');
+  } else {
+    setSaveIndicator('לא הצליח לטעון מהענן');
+  }
+  return loaded;
+}
+
 function markUnsaved() {
   persistToStorage();
-  document.getElementById('saveIndicator').textContent = 'נשמר בדפדפן ✓';
+  setSaveIndicator('נשמר בדפדפן ✓');
+  persistToCloudflare().then(success => {
+    if (success) setSaveIndicator('נשמר ענן ✓');
+  });
 }
 
 /* ─── EXPORT ─── */
@@ -1079,11 +1151,19 @@ function importExcel(event) {
 document.getElementById('p-date').value = today();
 document.getElementById('p-purpose').value = 'בית כנסת';
 document.getElementById('d-date').value = today();
-const restored = restoreFromStorage();
-renderAll();
-if (restored) {
-  document.getElementById('saveIndicator').textContent = 'נטען מהדפדפן ✓';
-}
+(async () => {
+  const fromCloud = await restoreFromCloudflare();
+  let restored = false;
+  if (!fromCloud) {
+    restored = restoreFromStorage();
+  }
+  renderAll();
+  if (fromCloud) {
+    setSaveIndicator('נטען מהענן ✓');
+  } else if (restored) {
+    setSaveIndicator('נטען מהדפדפן ✓');
+  }
+})();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
