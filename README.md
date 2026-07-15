@@ -1,6 +1,6 @@
 # Synagogue Donations App
 
-This app is ready to host on Cloudflare Pages as a static site.
+This app is ready to host on Cloudflare Pages as a static site
 
 ## What changed
 - The main app remains in [index.html](index.html)
