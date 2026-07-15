@@ -7,8 +7,8 @@ export async function onRequest(context) {
   }
 
   const auth = request.headers.get('Authorization');
-  const expectedUser = 'admin';
-  const expectedPass = env.PAGES_BASIC_AUTH_PASSWORD || 'change-me-strong-password';
+  const expectedUser = env.PAGES_BASIC_AUTH_USERNAME || 'admin';
+  const expectedPass = env.PAGES_BASIC_AUTH_PASSWORD || 'Ofir1234';
 
   const valid = auth && auth.startsWith('Basic ') && (() => {
     try {
