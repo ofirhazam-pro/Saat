@@ -5,8 +5,8 @@ compatibility_date = "2024-09-01"
 bucket = "."
 
 [vars]
-# no vars required
+PAGES_BASIC_AUTH_PASSWORD = "change-me-strong-password"
 
 [[kv_namespaces]]
 binding = "SAAT_KV"
-id = "YOUR_KV_NAMESPACE_ID"
+id = "ac04a8d3f11a4e58b399cea5765e0e46"
