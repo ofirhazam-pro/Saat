@@ -375,10 +375,15 @@ async function persistToCloudflare() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key: 'saat.json', payload: db })
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      showCloudflareError(data?.error || `HTTP ${response.status}`);
+      return false;
+    }
     return true;
   } catch (err) {
     console.warn('Could not sync to Cloudflare:', err);
+    showCloudflareError(err.message || 'Unknown Cloudflare sync error');
     return false;
   }
 }
@@ -387,8 +392,11 @@ async function restoreFromCloudflare() {
   if (typeof fetch !== 'function') return false;
   try {
     const response = await fetch('/api/data?key=saat.json', { cache: 'no-store' });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.warn('Cloudflare API error:', data);
+      throw new Error(data?.error || `HTTP ${response.status}`);
+    }
     const loaded = data?.payload || data;
     if (!loaded || !loaded.pledges || !loaded.donations) return false;
     db = loaded;
@@ -906,6 +914,11 @@ async function syncToCloudflare(showMessage = false) {
     setSaveIndicator(saved ? 'נשמר בענן ✓' : 'לא הצליח לשמור לענן');
   }
   return saved;
+}
+
+function showCloudflareError(message) {
+  console.error('Cloudflare sync error:', message);
+  setSaveIndicator(message);
 }
 
 async function loadFromCloudflare() {

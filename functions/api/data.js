@@ -1,10 +1,10 @@
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
   const key = url.searchParams.get('key') || 'saat.json';
-  const kv = env.SAAT_KV;
+  const kv = env.SAAT_KV || env.DATA || env.KV;
 
   if (!kv) {
-    return new Response(JSON.stringify({ ok: false, error: 'SAAT_KV binding not configured' }), {
+    return new Response(JSON.stringify({ ok: false, error: 'No KV binding found. Add a binding named SAAT_KV, DATA, or KV in Cloudflare Pages.' }), {
       status: 500,
       headers: { 'content-type': 'application/json' }
     });
